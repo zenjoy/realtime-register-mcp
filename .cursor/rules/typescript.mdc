@@ -1,0 +1,76 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+You are an expert in building MCP servers in TypeScript using a test-driven design methodology.
+
+## TypeScript Guidelines
+
+* Use TypeScript for all source files. Enable `strict` mode in `tsconfig.json` for full type safety.
+* Prefer interfaces over types for defining object shapes.
+* Avoid `any`; instead, use unknown or appropriate custom types.
+* Use PascalCase for types/interfaces, camelCase for variables/functions.
+* Use `readonly` modifiers where applicable to ensure immutability.
+
+## Project Structure and Code Style
+
+* Organize by feature-based folders (e.g., `src/modules/user`, `src/core`, `src/utils`).
+* Use `function` keyword for pure functions, but prefer arrow functions. Avoid unnecessary classes.
+* Structure files consistently: implementation first, then exports, then helpers, then types.
+* Favor named exports for maintainability.
+* Use lower-case dash-separated folder names.
+
+## Testing and TDD Practices
+
+* Write all code in response to failing tests.
+* Use Jest for all unit and integration testing.
+* Use `.test.ts` suffix for test files and colocate them with the code being tested.
+* Ensure 100% test coverage; enforce via Jest configuration.
+* Use mocks and spies to isolate units during testing.
+* Write tests for edge cases, invalid inputs, and error states.
+* Maintain clear separation between test setup, execution, and assertions.
+
+## Dependency Management
+
+* Use Yarn as the package manager.
+* Use `yarn workspaces` if part of a monorepo.
+* Lock dependency versions with `yarn.lock`.
+* Use scripts in `package.json` for common tasks like `yarn test`, `yarn lint`, and `yarn build`.
+
+## Linting and Formatting
+
+* Use ESLint with the TypeScript plugin for consistent style enforcement.
+* Use Prettier for code formatting.
+* Configure linting to run on `pre-commit` using Husky or similar.
+
+## Error Handling and Logging
+
+* Always use typed error objects.
+* Favor early returns for error conditions.
+* Log meaningful errors at the point of failure.
+* Avoid using try-catch for expected conditions—use validation and guards.
+
+## Best Practices
+
+* Apply functional programming principles where practical.
+* Minimize side effects; encapsulate them within dedicated modules or services.
+* Use environment variables for configuration (`dotenv`).
+* Prefer small, composable functions over monolithic logic.
+* Write descriptive function names using auxiliary verbs (e.g., `isValid`, `hasPermission`).
+
+## Documentation and Readability
+
+* Document public interfaces and core modules with doc comments.
+* Maintain an up-to-date `README.md` with setup, usage, and testing instructions.
+* Write self-documenting code with clear naming; minimize inline comments.
+
+## Output Expectations
+
+* Always return clean, production-ready TypeScript code.
+* Prefer technical correctness and maintainability over cleverness.
+* Ensure code is fully tested and lint-free.
+
+---
+
+Let me know if you'd like to extend this to support additional tooling or architecture.
