@@ -26,15 +26,22 @@ export class FileLogger implements Logger {
   };
 
   private readonly logFile: string;
+  private readonly enableFileLogging: boolean;
 
-  constructor(private readonly logLevel: LogLevel = 'info') {
+  constructor(
+    private readonly logLevel: LogLevel = 'info',
+    enableFileLogging: boolean = false
+  ) {
+    this.enableFileLogging = enableFileLogging;
     this.logFile = join(process.cwd(), 'mcp-server.log');
 
-    // Initialize log file
-    try {
-      writeFileSync(this.logFile, `=== MCP Server Started at ${new Date().toISOString()} ===\n`);
-    } catch {
-      // Ignore file write errors in production
+    // Initialize log file only if file logging is enabled
+    if (this.enableFileLogging) {
+      try {
+        writeFileSync(this.logFile, `=== MCP Server Started at ${new Date().toISOString()} ===\n`);
+      } catch {
+        // Ignore file write errors in production
+      }
     }
   }
 
@@ -63,7 +70,7 @@ export class FileLogger implements Logger {
   }
 
   private writeLog(level: LogLevel, message: string, ...args: unknown[]): void {
-    if (this.shouldLog(level)) {
+    if (this.shouldLog(level) && this.enableFileLogging) {
       try {
         appendFileSync(this.logFile, this.formatMessage(level, message, ...args));
       } catch {
@@ -90,8 +97,8 @@ export class FileLogger implements Logger {
 }
 
 /**
- * Create a logger instance with the specified log level
+ * Create a logger instance with the specified log level and optional file logging
  */
-export function createLogger(logLevel: LogLevel): Logger {
-  return new FileLogger(logLevel);
+export function createLogger(logLevel: LogLevel, enableFileLogging: boolean = false): Logger {
+  return new FileLogger(logLevel, enableFileLogging);
 }
