@@ -20,6 +20,7 @@ describe('CachedRealtimeRegisterClient', () => {
   beforeEach(() => {
     config = {
       apiKey: 'test-api-key',
+      customer: 'test-customer',
       baseUrl: 'https://api.test.com',
       requestTimeout: 5000,
       debug: false,

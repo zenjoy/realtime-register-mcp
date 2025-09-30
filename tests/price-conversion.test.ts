@@ -5,28 +5,45 @@
 import { RealtimeRegisterClient } from '../src/api/client.js';
 import { loadConfig } from '../src/core/config.js';
 
+// Mock the SDK
+jest.mock('@realtimeregister/api', () => {
+  const mockCheck = jest.fn();
+  return {
+    __esModule: true,
+    default: jest.fn().mockImplementation(() => ({
+      domains: {
+        check: mockCheck,
+      },
+    })),
+    DomainApi: jest.fn(),
+  };
+});
+
 describe('Price Conversion', () => {
   let client: RealtimeRegisterClient;
+  let mockSdk: any;
 
   beforeEach(() => {
     const config = loadConfig();
     client = new RealtimeRegisterClient(config);
     
-    // Reset fetch mock
-    fetchMock.resetMocks();
+    // Get access to the mock SDK
+    const RealtimeRegisterAPI = require('@realtimeregister/api').default;
+    mockSdk = new RealtimeRegisterAPI();
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   test('should convert price from cents to dollars', async () => {
-    // Mock API response with price in cents (54500 cents = $545.00)
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        available: true,
-        price: 54500, // Price in cents
-        currency: 'USD',
-        premium: true,
-      }),
-    } as any);
+    // Mock SDK response with price in cents (54500 cents = $545.00)
+    mockSdk.domains.check.mockResolvedValue({
+      available: true,
+      price: 54500, // Price in cents
+      currency: 'USD',
+      premium: true,
+    });
 
     const result = await client.checkDomainAvailability('fairy.blog');
 
@@ -36,15 +53,12 @@ describe('Price Conversion', () => {
   });
 
   test('should handle regular domain pricing', async () => {
-    // Mock API response with regular domain price (1500 cents = $15.00)
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        available: true,
-        price: 1500, // Price in cents  
-        currency: 'USD',
-      }),
-    } as any);
+    // Mock SDK response with regular domain price (1500 cents = $15.00)
+    mockSdk.domains.check.mockResolvedValue({
+      available: true,
+      price: 1500, // Price in cents  
+      currency: 'USD',
+    });
 
     const result = await client.checkDomainAvailability('example.com');
 
@@ -54,14 +68,11 @@ describe('Price Conversion', () => {
   });
 
   test('should handle domains without pricing', async () => {
-    // Mock API response without pricing info
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        available: false,
-        reason: 'Domain is already registered',
-      }),
-    } as any);
+    // Mock SDK response without pricing info
+    mockSdk.domains.check.mockResolvedValue({
+      available: false,
+      reason: 'Domain is already registered',
+    });
 
     const result = await client.checkDomainAvailability('google.com');
 

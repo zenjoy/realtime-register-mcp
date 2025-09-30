@@ -12,6 +12,7 @@ describe('RealtimeRegister API Client', () => {
   beforeEach(() => {
     client = new RealtimeRegisterClient({
       apiKey: 'test-api-key',
+      customer: 'test-customer',
       baseUrl: 'https://api.yoursrs-ote.com',
       requestTimeout: 30000,
       debug: false,
@@ -72,6 +73,7 @@ describe('RealtimeRegister API Client', () => {
     test('should create client with provided configuration', () => {
       const config = {
         apiKey: 'test-key',
+        customer: 'test-customer',
         baseUrl: 'https://test.example.com',
         requestTimeout: 60000,
         debug: true,
