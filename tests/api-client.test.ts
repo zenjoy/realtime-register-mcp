@@ -3,13 +3,39 @@
  * Testing lightweight validation and API mechanics
  */
 
-import { describe, test, expect, beforeEach } from '@jest/globals';
-import { RealtimeRegisterClient } from '../src/api/client';
+import { describe, test, expect, beforeEach, jest } from '@jest/globals';
+import { RealtimeRegisterClient, RealtimeRegisterApiError } from '../src/api/client';
+
+// Mock the SDK
+jest.mock('@realtimeregister/api', () => {
+  const mockCheck = jest.fn();
+  return {
+    __esModule: true,
+    default: jest.fn().mockImplementation(() => ({
+      domains: {
+        check: mockCheck,
+      },
+    })),
+    DomainApi: jest.fn(),
+  };
+});
 
 describe('RealtimeRegister API Client', () => {
   let client: RealtimeRegisterClient;
+  let mockCheck: jest.Mock;
 
   beforeEach(() => {
+    // Get mock function before creating client
+    const RealtimeRegisterAPI = require('@realtimeregister/api');
+    mockCheck = jest.fn();
+
+    // Reset mock implementation
+    RealtimeRegisterAPI.default.mockImplementation(() => ({
+      domains: {
+        check: mockCheck,
+      },
+    }));
+
     client = new RealtimeRegisterClient({
       apiKey: 'test-api-key',
       customer: 'test-customer',
@@ -20,6 +46,10 @@ describe('RealtimeRegister API Client', () => {
       serverName: 'test-server',
       serverVersion: '1.0.0',
     });
+  });
+
+  afterEach(() => {
+    jest.resetAllMocks();
   });
 
   describe('Basic input validation', () => {
@@ -101,6 +131,83 @@ describe('RealtimeRegister API Client', () => {
           // Expected to fail due to no API mocking
         });
       }).not.toThrow();
+    });
+  });
+
+  describe('testConnection', () => {
+    test('should return true for successful connection', async () => {
+      mockCheck.mockResolvedValue({
+        available: true,
+        price: 1000,
+        currency: 'USD',
+      });
+
+      const result = await client.testConnection();
+      expect(result).toBe(true);
+    });
+
+    test('should return false for 401 Unauthorized error', async () => {
+      const error = {
+        response: {
+          status: 401,
+          statusText: 'Unauthorized',
+          data: { message: 'Invalid API key' },
+        },
+      };
+      mockCheck.mockRejectedValue(error);
+
+      const result = await client.testConnection();
+      expect(result).toBe(false);
+    });
+
+    test('should return false for 403 Forbidden error', async () => {
+      const error = {
+        response: {
+          status: 403,
+          statusText: 'Forbidden',
+          data: { message: 'Access denied' },
+        },
+      };
+      mockCheck.mockRejectedValue(error);
+
+      const result = await client.testConnection();
+      expect(result).toBe(false);
+    });
+
+    test('should return true for 429 Rate Limit error (connection is working)', async () => {
+      const error = {
+        response: {
+          status: 429,
+          statusText: 'Too Many Requests',
+          data: { message: 'Rate limit exceeded' },
+        },
+      };
+      mockCheck.mockRejectedValue(error);
+
+      const result = await client.testConnection();
+      expect(result).toBe(true);
+    });
+
+    test('should return true for 500 Server Error (connection is working)', async () => {
+      const error = {
+        response: {
+          status: 500,
+          statusText: 'Internal Server Error',
+          data: { message: 'Server error' },
+        },
+      };
+      mockCheck.mockRejectedValue(error);
+
+      const result = await client.testConnection();
+      expect(result).toBe(true);
+    });
+
+    test('should return false for network errors', async () => {
+      const networkError = new Error('Network failure');
+      mockCheck.mockRejectedValue(networkError);
+
+      const result = await client.testConnection();
+      expect(result).toBe(false);
     });
   });
 });

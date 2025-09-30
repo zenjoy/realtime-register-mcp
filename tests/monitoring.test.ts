@@ -439,7 +439,7 @@ describe('ApiMonitor', () => {
 describe('MonitorFactory', () => {
   afterEach(() => {
     // Clean up any created monitors
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   it('should create RealtimeRegister monitor with correct config', () => {

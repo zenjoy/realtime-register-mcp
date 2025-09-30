@@ -20,23 +20,30 @@ jest.mock('@realtimeregister/api', () => {
 
 describe('Server Price Formatting', () => {
   let server: RealtimeRegisterMCPServer;
-  let mockSdk: any;
+  let mockCheck: jest.Mock;
 
   beforeEach(() => {
+    // Get mock function before creating server
+    const RealtimeRegisterAPI = require('@realtimeregister/api');
+    mockCheck = jest.fn();
+
+    // Reset mock implementation
+    RealtimeRegisterAPI.default.mockImplementation(() => ({
+      domains: {
+        check: mockCheck,
+      },
+    }));
+
     server = new RealtimeRegisterMCPServer();
-    
-    // Get access to the mock SDK
-    const RealtimeRegisterAPI = require('@realtimeregister/api').default;
-    mockSdk = new RealtimeRegisterAPI();
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   test('should format premium domain price correctly', async () => {
     // Mock SDK response with premium domain price
-    mockSdk.domains.check.mockResolvedValue({
+    mockCheck.mockResolvedValue({
       available: true,
       price: 54500, // This will be converted to 545.00 by client
       currency: 'USD',
@@ -52,7 +59,7 @@ describe('Server Price Formatting', () => {
 
   test('should format regular domain price correctly', async () => {
     // Mock SDK response with regular domain price
-    mockSdk.domains.check.mockResolvedValue({
+    mockCheck.mockResolvedValue({
       available: true,
       price: 1000, // This will be converted to 10.00 by client
       currency: 'USD',
@@ -67,7 +74,7 @@ describe('Server Price Formatting', () => {
 
   test('should handle unavailable domain without pricing', async () => {
     // Mock SDK response for unavailable domain
-    mockSdk.domains.check.mockResolvedValue({
+    mockCheck.mockResolvedValue({
       available: false,
       reason: 'Domain is already registered',
     });

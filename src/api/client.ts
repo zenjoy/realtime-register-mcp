@@ -64,9 +64,11 @@ export interface DomainAvailabilityResponse {
 export class RealtimeRegisterClient {
   private readonly sdk: RealtimeRegisterAPI;
   private readonly axiosInstance: AxiosInstance;
+  private readonly config: Config;
 
   constructor(config: Config) {
-    
+    this.config = config;
+
     // Configure the SDK
     const sdkConfig: ApiConfiguration = {
       apiKey: config.apiKey,
@@ -75,20 +77,20 @@ export class RealtimeRegisterClient {
       axiosConfig: {
         timeout: config.requestTimeout,
         headers: {
-          'User-Agent': 'realtime-register-mcp/0.1.0',
+          'User-Agent': `${config.serverName}/${config.serverVersion}`,
         },
       },
     };
 
     this.sdk = new RealtimeRegisterAPI(sdkConfig);
-    
+
     // Create a separate axios instance for generic requests
     this.axiosInstance = axios.create({
       baseURL: config.baseUrl,
       timeout: config.requestTimeout,
       headers: {
         Authorization: `ApiKey ${config.apiKey}`,
-        'User-Agent': 'realtime-register-mcp/0.1.0',
+        'User-Agent': `${config.serverName}/${config.serverVersion}`,
         'Content-Type': 'application/json',
       },
     });
@@ -126,6 +128,7 @@ export class RealtimeRegisterClient {
    * Convert Axios error to RealtimeRegister error format
    */
   private toApiErrorIfHttp(error: unknown): RealtimeRegisterApiError | null {
+    // Check for Axios errors first
     if (this.isAxiosError(error) && error.response) {
       const status = error.response.status;
       const statusText = error.response.statusText ?? '';
@@ -133,6 +136,23 @@ export class RealtimeRegisterClient {
       const message = this.formatErrorMessage(status, statusText, responseData);
       return new RealtimeRegisterApiError(message, status, statusText, responseData);
     }
+
+    // Duck-typed check for response-like error objects
+    if (
+      error &&
+      typeof error === 'object' &&
+      'response' in error &&
+      error.response &&
+      typeof error.response === 'object'
+    ) {
+      const response = error.response as Record<string, unknown>;
+      const status = typeof response.status === 'number' ? response.status : 0;
+      const statusText = typeof response.statusText === 'string' ? response.statusText : '';
+      const responseData = response.data ?? response;
+      const message = this.formatErrorMessage(status, statusText, responseData);
+      return new RealtimeRegisterApiError(message, status, statusText, responseData);
+    }
+
     return null;
   }
 
@@ -146,6 +166,9 @@ export class RealtimeRegisterClient {
     if (this.isAxiosError(error)) {
       if (error.code === 'ECONNABORTED') {
         return new RealtimeRegisterNetworkError(`${prefix}: Request timeout`, error);
+      }
+      if (error.code === 'ERR_CANCELED' || (error as any).name === 'CanceledError') {
+        return new RealtimeRegisterNetworkError(`${prefix}: Request canceled`, error);
       }
       return new RealtimeRegisterNetworkError(
         `${prefix}: Network error${error.message ? ` - ${error.message}` : ''}`,
@@ -212,7 +235,7 @@ export class RealtimeRegisterClient {
       // Add optional properties only if they exist
       // Note: RealtimeRegister API returns price in cents, convert to dollars
       if (response.price !== undefined) {
-        result.price = response.price / 100;
+        result.price = Math.round(response.price) / 100;
       }
       if (response.currency !== undefined) {
         result.currency = response.currency;

@@ -61,7 +61,7 @@ describe('CachedRealtimeRegisterClient', () => {
 
   afterEach(() => {
     cachedClient.shutdown();
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   describe('Domain Availability Caching', () => {

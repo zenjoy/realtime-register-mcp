@@ -42,7 +42,7 @@ describe('Bulk Domain MCP Integration', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   describe('handleCheckBulkDomains', () => {
