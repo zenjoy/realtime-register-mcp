@@ -1,5 +1,6 @@
 import { Config } from '../core/config.js';
-import fetch, { RequestInit as NodeFetchRequestInit } from 'node-fetch';
+import RealtimeRegisterAPI, { type ApiConfiguration } from '@realtimeregister/api';
+import axios, { type AxiosInstance, type AxiosError } from 'axios';
 
 /**
  * HTTP methods supported by the API client
@@ -61,102 +62,122 @@ export interface DomainAvailabilityResponse {
  * Provides authenticated HTTP client for interacting with RealtimeRegister API
  */
 export class RealtimeRegisterClient {
-  private readonly config: Config;
+  private readonly sdk: RealtimeRegisterAPI;
+  private readonly axiosInstance: AxiosInstance;
 
   constructor(config: Config) {
-    this.config = config;
+
+    // Configure the SDK
+    const sdkConfig: ApiConfiguration = {
+      apiKey: config.apiKey,
+      customer: config.customer,
+      baseURL: config.baseUrl,
+      axiosConfig: {
+        timeout: config.requestTimeout,
+        headers: {
+          'User-Agent': `${config.serverName}/${config.serverVersion}`,
+        },
+      },
+    };
+
+    this.sdk = new RealtimeRegisterAPI(sdkConfig);
+
+    // Create a separate axios instance for generic requests
+    this.axiosInstance = axios.create({
+      baseURL: config.baseUrl,
+      timeout: config.requestTimeout,
+      headers: {
+        Authorization: `ApiKey ${config.apiKey}`,
+        'User-Agent': `${config.serverName}/${config.serverVersion}`,
+        'Content-Type': 'application/json',
+      },
+    });
   }
 
   /**
    * Make an authenticated request to the RealtimeRegister API
    */
   public async request<T = unknown>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
-    const { method = 'GET', body, headers = {}, timeout = this.config.requestTimeout } = options;
-
-    const url = `${this.config.baseUrl}${endpoint}`;
-
-    // Debug logging removed - interferes with MCP JSON-RPC protocol
-
-    // Create AbortController for timeout handling
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const { method = 'GET', body, headers = {}, timeout } = options;
 
     try {
-      const requestHeaders: HeadersInit = {
-        Authorization: `ApiKey ${this.config.apiKey}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'realtime-register-mcp/0.1.0',
-        ...headers,
-      };
-
-      const requestOptions: NodeFetchRequestInit = {
+      const response = await this.axiosInstance.request<T>({
+        url: endpoint,
         method,
-        headers: requestHeaders,
-        signal: controller.signal,
-      };
+        data: method !== 'GET' ? body : undefined,
+        headers: headers,
+        ...(timeout && { timeout }),
+      });
 
-      // Add body for non-GET requests
-      if (body && method !== 'GET') {
-        requestOptions.body = JSON.stringify(body);
-      }
-
-      const response = await fetch(url, requestOptions);
-
-      // Clear timeout if request completed
-      clearTimeout(timeoutId);
-
-      // Handle HTTP error responses
-      if (!response.ok) {
-        let errorResponse: unknown;
-        try {
-          errorResponse = await response.json();
-        } catch {
-          // Ignore JSON parsing errors for error responses
-        }
-
-        const errorMessage = this.formatErrorMessage(
-          response.status,
-          response.statusText,
-          errorResponse
-        );
-        throw new RealtimeRegisterApiError(
-          errorMessage,
-          response.status,
-          response.statusText,
-          errorResponse
-        );
-      }
-
-      // Parse successful response
-      const responseData = await response.json();
-
-      // Debug logging removed - interferes with MCP JSON-RPC protocol
-
-      return responseData as T;
+      return response.data;
     } catch (error) {
-      clearTimeout(timeoutId);
+      throw this.mapAxiosError(error, `Failed to make ${method} request to ${endpoint}`);
+    }
+  }
 
-      // Re-throw API errors as-is
-      if (error instanceof RealtimeRegisterApiError) {
-        throw error;
+  /**
+   * Check if error is an Axios error
+   */
+  private isAxiosError(error: unknown): error is AxiosError {
+    return typeof error === 'object' && error !== null && 'isAxiosError' in error && !!(error as AxiosError).isAxiosError;
+  }
+
+  /**
+   * Convert Axios error to RealtimeRegister error format
+   */
+  private toApiErrorIfHttp(error: unknown): RealtimeRegisterApiError | null {
+    // Check for Axios errors first
+    if (this.isAxiosError(error) && error.response) {
+      const status = error.response.status;
+      const statusText = error.response.statusText ?? '';
+      const responseData = error.response.data;
+      const message = this.formatErrorMessage(status, statusText, responseData);
+      return new RealtimeRegisterApiError(message, status, statusText, responseData);
+    }
+
+    // Duck-typed check for response-like error objects
+    if (
+      error &&
+      typeof error === 'object' &&
+      'response' in error &&
+      error.response &&
+      typeof error.response === 'object'
+    ) {
+      const response = error.response as Record<string, unknown>;
+      const status = typeof response.status === 'number' ? response.status : 0;
+      const statusText = typeof response.statusText === 'string' ? response.statusText : '';
+      const responseData = response.data ?? response;
+      const message = this.formatErrorMessage(status, statusText, responseData);
+      return new RealtimeRegisterApiError(message, status, statusText, responseData);
+    }
+
+    return null;
+  }
+
+  /**
+   * Map Axios/SDK errors to our custom error types
+   */
+  private mapAxiosError(error: unknown, prefix: string): Error {
+    const apiError = this.toApiErrorIfHttp(error);
+    if (apiError) return apiError;
+
+    if (this.isAxiosError(error)) {
+      if (error.code === 'ECONNABORTED') {
+        return new RealtimeRegisterNetworkError(`${prefix}: Request timeout`, error);
       }
-
-      // Handle abort/timeout errors
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new RealtimeRegisterNetworkError(`Request timeout after ${timeout}ms`, error);
+      if (error.code === 'ERR_CANCELED' || (error as any).name === 'CanceledError') {
+        return new RealtimeRegisterNetworkError(`${prefix}: Request canceled`, error);
       }
-
-      // Handle network errors
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new RealtimeRegisterNetworkError(`Network error: ${error.message}`, error);
-      }
-
-      // Handle other errors
-      throw new RealtimeRegisterNetworkError(
-        `Unexpected error: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error : undefined
+      return new RealtimeRegisterNetworkError(
+        `${prefix}: Network error${error.message ? ` - ${error.message}` : ''}`,
+        error
       );
     }
+
+    return new RealtimeRegisterNetworkError(
+      `${prefix}: Unexpected error${error instanceof Error ? ` - ${error.message}` : ''}`,
+      error instanceof Error ? error : undefined
+    );
   }
 
   /**
@@ -200,15 +221,8 @@ export class RealtimeRegisterClient {
     const lowercaseDomain = domain.trim().toLowerCase();
 
     try {
-      // Let the RealtimeRegister API handle all validation - it knows best!
-      // Use official RealtimeRegister domain check endpoint: GET /v2/domains/{domainName}/check
-      const response = await this.request<{
-        available: boolean;
-        reason?: string;
-        premium?: boolean;
-        currency?: string;
-        price?: number;
-      }>(`/v2/domains/${encodeURIComponent(lowercaseDomain)}/check`);
+      // Use the official SDK's domain check method
+      const response = await this.sdk.domains.check(lowercaseDomain);
 
       // Transform to our interface format
       const result: DomainAvailabilityResponse = {
@@ -219,7 +233,7 @@ export class RealtimeRegisterClient {
       // Add optional properties only if they exist
       // Note: RealtimeRegister API returns price in cents, convert to dollars
       if (response.price !== undefined) {
-        result.price = response.price / 100;
+        result.price = Math.round(response.price) / 100;
       }
       if (response.currency !== undefined) {
         result.currency = response.currency;
@@ -230,19 +244,8 @@ export class RealtimeRegisterClient {
 
       return result;
     } catch (error) {
-      // Pass through API errors - they contain the authoritative validation messages
-      if (
-        error instanceof RealtimeRegisterApiError ||
-        error instanceof RealtimeRegisterNetworkError
-      ) {
-        throw error;
-      }
-
-      throw new Error(
-        `Failed to check domain availability: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      );
+      // Map SDK errors to our custom error types
+      throw this.mapAxiosError(error, 'Failed to check domain availability');
     }
   }
 
@@ -255,14 +258,14 @@ export class RealtimeRegisterClient {
     try {
       // Use a simple domain check to test connectivity and authentication
       // This is lightweight and doesn't require specific customer context
-      await this.request('/v2/domains/test.com/check');
+      await this.sdk.domains.check('test.com');
       return true;
     } catch (error) {
-      // Debug logging removed - interferes with MCP JSON-RPC protocol
       // Only return false for authentication/authorization errors (401, 403)
       // Other errors (like rate limiting) should not indicate connection failure
-      if (error instanceof RealtimeRegisterApiError) {
-        return error.status !== 401 && error.status !== 403;
+      const apiError = this.toApiErrorIfHttp(error);
+      if (apiError) {
+        return apiError.status !== 401 && apiError.status !== 403;
       }
       return false;
     }

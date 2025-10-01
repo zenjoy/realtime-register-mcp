@@ -44,6 +44,8 @@ const getPackageInfo = (): { name: string; version: string } => {
 export interface Config {
   /** RealtimeRegister API key for authentication */
   apiKey: string;
+  /** Customer identifier for RealtimeRegister API */
+  customer: string;
   /** Base URL for RealtimeRegister API */
   baseUrl: string;
   /** Request timeout in milliseconds */
@@ -65,6 +67,7 @@ export interface Config {
  * Configuration defaults
  */
 const CONFIG_DEFAULTS = {
+  customer: 'mcp-client',
   baseUrl: 'https://api.yoursrs.com',
   requestTimeout: 30000,
   debug: false,
@@ -97,6 +100,7 @@ export const loadConfig = (): Config => {
 
   return {
     apiKey,
+    customer: process.env.REALTIME_REGISTER_CUSTOMER ?? CONFIG_DEFAULTS.customer,
     baseUrl: process.env.REALTIME_REGISTER_BASE_URL ?? CONFIG_DEFAULTS.baseUrl,
     requestTimeout: parseTimeout(process.env.REALTIME_REGISTER_TIMEOUT),
     debug: process.env.REALTIME_REGISTER_DEBUG === 'true',
@@ -116,6 +120,7 @@ const VALID_LOG_LEVELS = ['error', 'warn', 'info', 'debug'] as const;
  */
 const VALIDATION_RULES = {
   apiKey: (value: string) => value.length > 0 || 'API key is required',
+  customer: (value: string) => value.length > 0 || 'Customer identifier is required',
   baseUrl: (value: string) => {
     if (!value) return 'Base URL is required';
     try {

@@ -4,27 +4,51 @@
 
 import { RealtimeRegisterMCPServer } from '../src/core/server.js';
 
+// Mock the SDK
+jest.mock('@realtimeregister/api', () => {
+  const mockCheck = jest.fn();
+  return {
+    __esModule: true,
+    default: jest.fn().mockImplementation(() => ({
+      domains: {
+        check: mockCheck,
+      },
+    })),
+    DomainApi: jest.fn(),
+  };
+});
+
 describe('Server Price Formatting', () => {
   let server: RealtimeRegisterMCPServer;
+  let mockCheck: jest.Mock;
 
   beforeEach(() => {
+    // Get mock function before creating server
+    const RealtimeRegisterAPI = require('@realtimeregister/api');
+    mockCheck = jest.fn();
+
+    // Reset mock implementation
+    RealtimeRegisterAPI.default.mockImplementation(() => ({
+      domains: {
+        check: mockCheck,
+      },
+    }));
+
     server = new RealtimeRegisterMCPServer();
-    
-    // Reset fetch mock
-    fetchMock.resetMocks();
+  });
+
+  afterEach(() => {
+    jest.resetAllMocks();
   });
 
   test('should format premium domain price correctly', async () => {
-    // Mock API response with premium domain price (already converted to dollars)
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        available: true,
-        price: 54500, // This will be converted to 545.00 by client
-        currency: 'USD',
-        premium: true,
-      }),
-    } as any);
+    // Mock SDK response with premium domain price
+    mockCheck.mockResolvedValue({
+      available: true,
+      price: 54500, // This will be converted to 545.00 by client
+      currency: 'USD',
+      premium: true,
+    });
 
     const result = await server['handleCheckDomainAvailability']({ domain: 'fairy.blog' });
 
@@ -34,15 +58,12 @@ describe('Server Price Formatting', () => {
   });
 
   test('should format regular domain price correctly', async () => {
-    // Mock API response with regular domain price
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        available: true,
-        price: 1000, // This will be converted to 10.00 by client
-        currency: 'USD',
-      }),
-    } as any);
+    // Mock SDK response with regular domain price
+    mockCheck.mockResolvedValue({
+      available: true,
+      price: 1000, // This will be converted to 10.00 by client
+      currency: 'USD',
+    });
 
     const result = await server['handleCheckDomainAvailability']({ domain: 'example.com' });
 
@@ -52,14 +73,11 @@ describe('Server Price Formatting', () => {
   });
 
   test('should handle unavailable domain without pricing', async () => {
-    // Mock API response for unavailable domain
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        available: false,
-        reason: 'Domain is already registered',
-      }),
-    } as any);
+    // Mock SDK response for unavailable domain
+    mockCheck.mockResolvedValue({
+      available: false,
+      reason: 'Domain is already registered',
+    });
 
     const result = await server['handleCheckDomainAvailability']({ domain: 'google.com' });
 

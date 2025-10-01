@@ -18,6 +18,7 @@ describe('Bulk Domain MCP Integration', () => {
     // Mock configuration
     mockLoadConfig.mockReturnValue({
       apiKey: 'test-api-key',
+      customer: 'test-customer',
       baseUrl: 'https://api.realtimeregister.com',
       requestTimeout: 30000,
       debug: false,
@@ -41,7 +42,7 @@ describe('Bulk Domain MCP Integration', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   describe('handleCheckBulkDomains', () => {

@@ -69,6 +69,7 @@ describe('Configuration', () => {
     test('should validate a complete config', () => {
       const config: Config = {
         apiKey: 'test-key',
+        customer: 'test-customer',
         baseUrl: 'https://api.example.com',
         requestTimeout: 30000,
         debug: false,
@@ -83,6 +84,7 @@ describe('Configuration', () => {
     test('should throw for missing API key', () => {
       const config: Config = {
         apiKey: '',
+        customer: 'test-customer',
         baseUrl: 'https://api.example.com',
         requestTimeout: 30000,
         debug: false,
@@ -97,6 +99,7 @@ describe('Configuration', () => {
     test('should throw for invalid timeout', () => {
       const config: Config = {
         apiKey: 'test-key',
+        customer: 'test-customer',
         baseUrl: 'https://api.example.com',
         requestTimeout: -1,
         debug: false,

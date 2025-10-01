@@ -205,7 +205,7 @@ describe('Bulk Domain Availability - Parallel API Requests', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   describe('Basic functionality', () => {
