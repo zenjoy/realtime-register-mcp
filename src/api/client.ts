@@ -64,10 +64,8 @@ export interface DomainAvailabilityResponse {
 export class RealtimeRegisterClient {
   private readonly sdk: RealtimeRegisterAPI;
   private readonly axiosInstance: AxiosInstance;
-  private readonly config: Config;
 
   constructor(config: Config) {
-    this.config = config;
 
     // Configure the SDK
     const sdkConfig: ApiConfiguration = {
