@@ -1,6 +1,6 @@
 {
   "name": "realtime-register-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Model Context Protocol server for RealtimeRegister domain management operations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
