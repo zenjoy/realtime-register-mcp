@@ -68,10 +68,12 @@ export class RealtimeRegisterClient {
   constructor(config: Config) {
 
     // Configure the SDK
+    // Only pass baseURL if explicitly configured via environment variable
+    // Otherwise, let the SDK use its default (https://api.yoursrs.com/v2/)
     const sdkConfig: ApiConfiguration = {
       apiKey: config.apiKey,
       customer: config.customer,
-      baseURL: config.baseUrl,
+      ...(config.isBaseUrlExplicit && { baseURL: config.baseUrl }),
       axiosConfig: {
         timeout: config.requestTimeout,
         headers: {

@@ -48,6 +48,8 @@ export interface Config {
   customer: string;
   /** Base URL for RealtimeRegister API */
   baseUrl: string;
+  /** Whether baseUrl was explicitly set via environment variable */
+  isBaseUrlExplicit: boolean;
   /** Request timeout in milliseconds */
   requestTimeout: number;
   /** Enable debug logging */
@@ -97,11 +99,13 @@ export const loadConfig = (): Config => {
   }
 
   const packageInfo = getPackageInfo();
+  const explicitBaseUrl = process.env.REALTIME_REGISTER_BASE_URL;
 
   return {
     apiKey,
     customer: process.env.REALTIME_REGISTER_CUSTOMER ?? CONFIG_DEFAULTS.customer,
-    baseUrl: process.env.REALTIME_REGISTER_BASE_URL ?? CONFIG_DEFAULTS.baseUrl,
+    baseUrl: explicitBaseUrl ?? CONFIG_DEFAULTS.baseUrl,
+    isBaseUrlExplicit: !!explicitBaseUrl,
     requestTimeout: parseTimeout(process.env.REALTIME_REGISTER_TIMEOUT),
     debug: process.env.REALTIME_REGISTER_DEBUG === 'true',
     logLevel: process.env.LOG_LEVEL ?? CONFIG_DEFAULTS.logLevel,
